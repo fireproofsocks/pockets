@@ -1,14 +1,14 @@
 defmodule Pockets.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "0.1.0"
 
   def project do
     [
       app: :pockets,
       name: "Pockets",
       description:
-        "Pockets is an Elixir wrapper around Erlang :ets and :dets, a disk-based term storage. It offers a simple key/value store with a familiar interface.",
+        "Pockets is an Elixir wrapper around Erlang :ets and :dets, a disk-based term storage. It offers a simple key/value store with a familiar interface. This is a simple alternative to :mnesia or Redis.",
       source_url: "https://github.com/fireproofsocks/pockets",
       version: @version,
       elixir: "~> 1.10",

@@ -55,8 +55,8 @@ defmodule Pockets.MixProject do
   def links do
     %{
       "GitHub" => "https://github.com/fireproofsocks/pockets",
-      "Readme" => "https://github.com/fireproofsocks/stripper/blob/v#{@version}/README.md",
-      "Changelog" => "https://github.com/fireproofsocks/stripper/blob/v#{@version}/CHANGELOG.md"
+      "Readme" => "https://github.com/fireproofsocks/pockets/blob/v#{@version}/README.md",
+      "Changelog" => "https://github.com/fireproofsocks/pockets/blob/v#{@version}/CHANGELOG.md"
     }
   end
 

@@ -1,7 +1,10 @@
-defmodule Pockets.EtsTable do
+defmodule Pockets.EtsInfo do
   @moduledoc """
   A struct defining information about an Erlang `:ets` in-memory table,
   adapted from [:ets.info/1](https://erlang.org/doc/man/ets.html#info-1)
+
+  - `table_id` is the table identifier used in the `Pockets` calls.
+  - `table_ref` is the table identifier used with `:ets` commands
   """
 
   # iex> :ets.info(:my_cache)
@@ -22,11 +25,12 @@ defmodule Pockets.EtsTable do
   #  keypos: 1,
   #  protection: :public
   # ]
-  @enforce_keys [:name, :type, :table_ref]
+  #  @enforce_keys [:table_id, :type, :table_ref, :library]
   defstruct [
     # custom
+    #    :table_id,
     # equal to table_name atom if :named_table, otherwise equal to id reference
-    :table_ref,
+    #    :table_ref,
     # Shared
     :name,
     :type,
@@ -46,20 +50,21 @@ defmodule Pockets.EtsTable do
     :protection
   ]
 
-  def from_list(info) do
-    struct(
-      __MODULE__,
-      info
-      |> Enum.into(%{})
-      |> put_table_ref()
-    )
-  end
-
-  defp put_table_ref(%{named_table: true} = map) do
-    Map.put(map, :table_ref, map[:name])
-  end
-
-  defp put_table_ref(%{named_table: false} = map) do
-    Map.put(map, :table_ref, map[:id])
-  end
+  def new(info), do: struct(__MODULE__, info)
+  #    struct(
+  #      __MODULE__,
+  #      info
+  #      |> Enum.into(%{})
+  #      |> put_table_ref()
+  #      |> Map.put(:library, :ets)
+  #    )
+  #  end
+  #
+  #  defp put_table_ref(%{named_table: true} = map) do
+  #    Map.put(map, :table_ref, map[:table_id])
+  #  end
+  #
+  #  defp put_table_ref(%{named_table: false} = map) do
+  #    Map.put(map, :table_ref, map[:id])
+  #  end
 end

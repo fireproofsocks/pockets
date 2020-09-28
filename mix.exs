@@ -7,7 +7,8 @@ defmodule Pockets.MixProject do
     [
       app: :pockets,
       name: "Pockets",
-      description: "An Elixir wrapper around Erlang :ets and :dets, a disk-based term storage",
+      description:
+        "Pockets is an Elixir wrapper around Erlang :ets and :dets, a disk-based term storage. It offers a simple key/value store with a familiar interface.",
       source_url: "https://github.com/fireproofsocks/pockets",
       version: @version,
       elixir: "~> 1.10",

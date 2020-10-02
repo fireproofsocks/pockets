@@ -1,6 +1,6 @@
 # Pockets
 
-Pockets is an Elixir wrapper around Erlang [ETS](https://erlang.org/doc/man/ets.html) and [DETS](https://erlang.org/doc/man/dets.html), Erlang's built-in term storage and disk-based term storage. Pockets aims to provide a simple and familiar interface for caching and persisting data by implementing many of the functions found in the built-in `Map` and `Keyword` modules. A pocket may hold data in memory or on disk.
+Pockets is an Elixir wrapper around Erlang [ETS](https://erlang.org/doc/man/ets.html) and [DETS](https://erlang.org/doc/man/dets.html), Erlang's built-in solutions for memory- and disk-based term storage. Pockets aims to provide a simple and familiar interface for caching and persisting data by implementing many of the functions found in the built-in `Map` and `Keyword` modules. A pocket may hold data in memory or on disk.
 
 Secondly, the docs on [erlang.org](https://erlang.org/) are a bit rough to look at for Elixir developers, so 
 this package acts as a case study of the differences between the powerful built-in `:ets` and `:dets` libraries.

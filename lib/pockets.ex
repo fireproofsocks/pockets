@@ -1,7 +1,7 @@
 defmodule Pockets do
   @moduledoc """
   `Pockets` is a wrapper around Erlang [`:ets`](https://erlang.org/doc/man/ets.html)
-  and [`:dets``](https://erlang.org/doc/man/dets.html), built-in options for memory- and disk-based term storage.
+  and [`:dets`](https://erlang.org/doc/man/dets.html), built-in options for memory- and disk-based term storage.
   It offers simple key/value storage using an interface similar to the `Map` or `Keyword` modules. This can be a useful
   persistent cache for many use cases.
 
@@ -26,13 +26,13 @@ defmodule Pockets do
 
   @typedoc """
   An alias is used to refer to a `Pockets` table: it is usually an atom, but in some cases
-  it may be a reference.
+  it may be a reference (e.g. in an `:ets` table with `named_table: false`).
   """
   @type alias :: atom | reference
 
   defguard is_alias(value) when is_atom(value) or is_reference(value)
 
-  # @table_types [:bag, :duplicate_bag, :set]
+  @table_types [:bag, :duplicate_bag, :set]
 
   @default_table_type :set
   @default_dets_opts [type: @default_table_type]
@@ -104,6 +104,21 @@ defmodule Pockets do
   # detect() -- all/0 -- census/0 load all known :ets and :dets tables into Pocket for reference/inspection
 
   @doc """
+  Closes the given table. Only processes that have opened a table are allowed to close it.
+  For `:ets` in-memory tables, this is the same as `destroy/1`.
+  """
+  @spec close(table_alias :: alias) :: :ok | {:error, any}
+  def close(table_alias) when is_alias(table_alias) do
+    table_alias
+    |> Registry.lookup()
+    |> case do
+      nil -> {:error, "Pockets table not found: #{table_alias}"}
+      %{library: :ets} -> destroy(table_alias)
+      %{library: :dets, tid: tid} -> :dets.close(tid)
+    end
+  end
+
+  @doc """
   Deletes the entry in table for a specific `key`
 
   ## Examples
@@ -166,7 +181,10 @@ defmodule Pockets do
   def empty?(table_alias) when is_alias(table_alias) do
     table_alias
     |> Registry.lookup()
-    |> do_info(:size) == 0
+    |> case do
+      nil -> true
+      table -> do_info(table, :size) == 0
+    end
   end
 
   @doc """
@@ -266,11 +284,15 @@ defmodule Pockets do
   """
   @spec merge(alias(), input :: alias | list | map) :: alias
   def merge(table_alias, input) when is_alias(table_alias) and is_alias(input) do
-    table2 = Registry.lookup(input)
+    case Registry.lookup(input) do
+      nil ->
+        {:error, "Table does not exist: #{input}"}
 
-    table_alias
-    |> Registry.lookup()
-    |> do_merge_tables(table2)
+      table2 ->
+        table_alias
+        |> Registry.lookup()
+        |> do_merge_tables(table2)
+    end
   end
 
   def merge(table_alias, input) when is_alias(table_alias) when is_map(input) or is_list(input) do
@@ -285,15 +307,64 @@ defmodule Pockets do
   The second argument specifies the storage mechanism for the table, either a path to a file (as a string)
   for disk-backed tables (`:dets`), or in `:memory` for memory-backed tables (`:ets`).
 
-  The `opts` pertains to the type table that is being opened:
+  The available `opts` are specific to the storage engine being used.
 
-  - `:memory` : default arguments: #{inspect(@default_ets_opts)}
-  - filepath : default arguments: #{inspect(@default_dets_opts)}
+  ## In Memory
+
+  When creating a new memory-based table (i.e. the second argument is `:memory` or is omitted),
+  the following options are supported:
+
+  - `:type` One of `#{inspect(@table_types)}` Default: `#{@default_table_type}`
+  - `:access` One of `:public` | `:protected` | `:private`. Default: `:public`
+  - `:named_table` boolean affects how the table is referenced.
+      If `false`, the table alias will be a reference (not an atom). Default: `true`
+  - `:keypos` integer indicating the position of the element of each object to be used as key. Default: `1`
+  - `:read_concurrency` boolean. Default: `true`
+  - `:write_concurrency` boolean. Default: `true`
+  - `:decentralized_counters` boolean. Default: `false`
+  - `:compressed` boolean. Default: `false`
+
+  The full list of default options for memory-based tables are:
+  ```
+  #{inspect(@default_ets_opts)}
+  ```
+
+  The structure of the options is changed from the [original](https://erlang.org/doc/man/ets.html)
+  to make them more compatible with Elixir conventions. See the original documentation for specifics
+  about each option.
+
+  ## File-based Tables
+
+  When creating a new disk-based table (i.e. the second argument is a string path to a file),
+  the following options are supported:
+
+  - `:type` One of `#{inspect(@table_types)}` Default: `#{@default_table_type}`
+  - `:access` One of `:read` | `:read_write`. Default: `:read_write`
+  - `:auto_save` integer or `:infinity` specifying the autosave interval (where `:infinity` disables the feature). Default: `180000` (3 minutes)
+  - `:keypos` integer indicating the position of the element of each object to be used as key. Default: `1`
+  - `:file` The name of the file to be opened. Defaults to the table name. (Use of this confusing option is not recommended)
+  - `:max_no_slots` The maximum number of slots to be used. Default: `32 M` (million?)
+  - `:min_no_slots` Application performance can be enhanced with this flag by specifying the estimated number of
+      different keys to be stored in the table. Default: `256` (minimum)
+  - `:ram_file` boolean. Whether the table is to be kept in RAM.
+      Keeping the table in RAM can sound like an anomaly, but can enhance the performance of applications that open
+      a table, insert a set of objects, and then close the table. When the table is closed, its contents are written
+      to the disk file. Default: `false`
+  - `:repair` boolean or `:force`. The flag specifies if the `:dets` server invokes the automatic file reparation
+      algorithm. Default: `true`
+
+  The default options for disk-based tables are:
+  ```
+  #{inspect(@default_dets_opts)}
+  ```
 
   ## Examples
 
       iex> Pockets.new(:ram_cache, :memory)
       {:ok, :ram_cache}
+
+      iex> Pockets.new(:disk_cache, "/tmp/my.dets")
+      {:ok, :disk_cache}
   """
   @spec new(table_alias :: alias, :memory | binary, opts :: keyword) ::
           {:ok, alias} | {:error, any}
@@ -303,8 +374,12 @@ defmodule Pockets do
     table_alias
     |> Registry.exists?()
     |> case do
-      true -> {:noop, "Table #{table_alias} already exists"}
-      false -> create_table(table_alias, opts, :ets)
+      true ->
+        Logger.warn("Table #{table_alias} already exists")
+        {:ok, table_alias}
+
+      false ->
+        create_table(table_alias, opts, :ets)
     end
   end
 
@@ -338,17 +413,23 @@ defmodule Pockets do
   end
 
   @doc """
-  Open a table for use. If the table does not exist, it will be created with the `opts` provided.
-  If the table has already been opened, a warning is issued.
+  Open a table for use. The behavior and available options of this function vary
+  depending on the storage mechanism of the table (i.e.memory or disk).
 
-  The second argument specifies the storage mechanism for the table, either a path to a file (as a string)
-  if the table is to be stored in a file (i.e. a DETS table), or `:memory` if the table is to be kept only in memory
-  (i.e. an ETS table).
+  ## Memory-based Tables
 
-  The `opts` pertains to the type table that is being opened:
+  For memory-based tables `open/3` is synonymous with `new/3`.
 
-  - `:memory` : default arguments: #{inspect(@default_ets_opts)}
-  - filepath : default arguments: #{inspect(@default_dets_opts)}
+  ## Disk-based Tables
+
+  Because a file is involved, the `:create?` option provides a bit more control over whether or not
+
+  Options
+
+  - `:create?` Indicates whether a new table should be created if the one being requested does not already exist. Default: `false`
+
+  If `:create?` is `true` and the filepath indicated by the second argument does not exist,
+  `open/3` is synonymous with `new/3`.
 
   ## Examples
 
@@ -359,21 +440,13 @@ defmodule Pockets do
       iex> Pockets.open(:disk_cache, "/tmp/cache.dets")
       {:ok, :disk_cache}
   """
-  @spec open(Pocekts.alias(), :memory | binary, opts :: keyword) :: any
+  @spec open(Pockets.alias(), :memory | binary, opts :: keyword) :: any
   def open(table_alias, storage \\ :memory, opts \\ [type: @default_table_type])
 
-  # :ets.new/2 will throw an ArgumentError if you try to create the same named table more than once
-  # :ets
   def open(table_alias, :memory, opts) when is_alias(table_alias) do
-    table_alias
-    |> :ets.info()
-    |> case do
-      :undefined -> create_table(table_alias, opts, :ets)
-      _ -> {:exists, table_alias}
-    end
+    new(table_alias, :memory, opts)
   end
 
-  # :dets
   def open(table_alias, file, opts) when is_alias(table_alias) and is_binary(file) do
     {create?, opts} =
       @default_dets_opts
@@ -628,6 +701,10 @@ defmodule Pockets do
     )
   end
 
+  #  defp contents_accumulator([], library, tid) do
+  #
+  #  end
+
   # :ets.new/2 does not take a nice keyword list as its options: it takes a mix of values. Yuck.
   defp prepare_ets_options(opts) do
     relevant_opts = Keyword.take(opts, Keyword.keys(@default_ets_opts))
@@ -676,7 +753,6 @@ defmodule Pockets do
   defp do_delete(%Table{library: :ets, alias: alias, tid: tid}, key) do
     case :ets.delete(tid, key) do
       true -> alias
-      _ -> {:error, "There was a problem deleting the key #{key} from the table #{alias}"}
     end
   end
 
@@ -692,10 +768,9 @@ defmodule Pockets do
     end
   end
 
-  defp do_destroy(%Table{library: :ets, alias: alias, tid: tid}) do
+  defp do_destroy(%Table{library: :ets, tid: tid}) do
     case :ets.delete(tid) do
       true -> :ok
-      _ -> {:error, "There was a problem destroying the table #{alias}"}
     end
   end
 
@@ -714,6 +789,7 @@ defmodule Pockets do
     library.member(tid, key)
   end
 
+  @spec do_info(Table.t() | nil) :: DetsInfo.t() | EtsInfo.t() | {:error, any}
   defp do_info(%Table{library: :dets, tid: tid}) do
     tid
     |> :dets.info()
@@ -726,6 +802,9 @@ defmodule Pockets do
     |> EtsInfo.new()
   end
 
+  defp do_info(nil), do: {:error, "Table not found"}
+
+  @spec do_info(Table.t() | nil, item :: any) :: any
   defp do_info(%Table{library: :dets, tid: tid}, item) when item in @dets_info_items do
     :dets.info(tid, item)
   end
@@ -733,6 +812,8 @@ defmodule Pockets do
   defp do_info(%Table{library: :ets, tid: tid}, item) when item in @ets_info_items do
     :ets.info(tid, item)
   end
+
+  defp do_info(nil, _), do: {:error, "Table not found"}
 
   defp do_merge_tables(t1, t2) do
     t2
@@ -762,7 +843,6 @@ defmodule Pockets do
   defp do_put(%Table{library: :ets, tid: tid, alias: alias}, key, value) do
     case :ets.insert(tid, {key, value}) do
       true -> alias
-      _ -> {:error, "There was a problem putting into your table #{alias}"}
     end
   end
 
@@ -817,20 +897,7 @@ defmodule Pockets do
 
   # Is the file already used by any :dets table?
   defp is_file_already_in_use?(file) do
-    file_as_atom = String.to_atom(file)
-
     :dets.all()
-    |> Enum.find(
-      false,
-      fn x ->
-        x
-        |> :dets.info()
-        |> DetsInfo.new()
-        |> case do
-          %DetsInfo{filename: ^file_as_atom} -> true
-          _ -> false
-        end
-      end
-    )
+    |> Enum.member?(String.to_atom(file))
   end
 end

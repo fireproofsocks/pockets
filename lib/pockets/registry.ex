@@ -16,11 +16,16 @@ defmodule Pockets.Registry do
   end
 
   @doc """
+  Flushes the registry
+  """
+  def flush do
+    GenServer.call(__MODULE__, {:flush})
+  end
+
+  @doc """
   Gets the entire registry.
   """
-  def list() do
-    GenServer.call(__MODULE__, {:list})
-  end
+  def list, do: GenServer.call(__MODULE__, {:list})
 
   @doc """
   Looks up the info for the given `table_alias`.
@@ -50,6 +55,11 @@ defmodule Pockets.Registry do
   @impl true
   def handle_call({:exists?, table_alias}, _from, state) do
     {:reply, Map.has_key?(state, table_alias), state}
+  end
+
+  @impl true
+  def handle_call({:flush}, _from, _state) do
+    {:reply, :ok, %{}}
   end
 
   @impl true

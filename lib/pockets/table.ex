@@ -5,7 +5,7 @@ defmodule Pockets.Table do
   table.
 
   - `alias`: what you (the developer) uses to refer to your `Pocket` tables.
-  - `tid`: the table identifier: i.e. what the `library` (:ets` or `:dets`) uses to identify the table.
+  - `tid`: the table identifier: i.e. what the `library` uses to identify the table.
   - `library`: denotes either `:ets` or `:dets`
   - `type` : the type of storage. `:bag` | `:duplicate_bag` | `:set`
   """

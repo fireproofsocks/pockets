@@ -16,6 +16,8 @@ defmodule Pockets.MixProject do
       deps: deps(),
       package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [coveralls: :test, "coveralls.detail": :test],
       docs: [
         source_ref: "v#{@version}",
         logo: "docs/logo.png",
@@ -71,7 +73,10 @@ defmodule Pockets.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.22.5", only: :dev, runtime: false}
+      {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.22.5", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.13", only: [:dev, :test], runtime: false}
     ]
   end
 end

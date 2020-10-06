@@ -94,7 +94,7 @@ defmodule PocketsTest do
     end
   end
 
-  describe "get/3" do
+  describe "get/3 type: :set" do
     test "returns value when key exists" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
       assert "cat" == Pockets.get(:test, :c)
@@ -103,6 +103,36 @@ defmodule PocketsTest do
     test "returns default when key does not exist" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
       assert "my-default" == Pockets.get(:test, :missing, "my-default")
+    end
+  end
+
+  describe "get/3 type: :bag" do
+    test "returns values when key exists" do
+      {:ok, _} = Pockets.new(:t1, :memory, type: :bag)
+      Pockets.put(:t1, :x, "x")
+      Pockets.put(:t1, :x, "x")
+      Pockets.put(:t1, :x, "y")
+      assert ["x", "y"] == Pockets.get(:t1, :x)
+    end
+
+    test "returns empty list when key does not exist" do
+      {:ok, _} = Pockets.new(:t1, :memory, type: :bag)
+      assert [] == Pockets.get(:t1, :missing, "my-default")
+    end
+  end
+
+  describe "get/3 type: :duplicate_bag" do
+    test "returns values when key exists" do
+      {:ok, _} = Pockets.new(:t1, :memory, type: :duplicate_bag)
+      Pockets.put(:t1, :x, "x")
+      Pockets.put(:t1, :x, "x")
+      Pockets.put(:t1, :x, "y")
+      assert ["x", "x", "y"] == Pockets.get(:t1, :x)
+    end
+
+    test "returns empty list when key does not exist" do
+      {:ok, _} = Pockets.new(:t1, :memory, type: :duplicate_bag)
+      assert [] == Pockets.get(:t1, :missing, "my-default")
     end
   end
 

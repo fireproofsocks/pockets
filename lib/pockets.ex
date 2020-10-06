@@ -5,9 +5,6 @@ defmodule Pockets do
   It offers simple key/value storage using an interface similar to the `Map` or `Keyword` modules. This can be a useful
   persistent cache for many use cases.
 
-  For those needing more power or versatility than what `:ets` or `:dets` can offer, Elixir includes
-  [`:mnesia`](http://erlang.org/doc/man/mnesia.html).
-
   Note that this package and the libraries that underpin it may have limitations or specific behaviors that may affect
   its suitability for various use-cases.  For example, the limited support for concurrency provided by the `:ets(3)`
   module is not yet provided by `:dets`.
@@ -104,8 +101,10 @@ defmodule Pockets do
   # detect() -- all/0 -- census/0 load all known :ets and :dets tables into Pocket for reference/inspection
 
   @doc """
-  Closes the given table. Only processes that have opened a table are allowed to close it.
+  Closes the given table (i.e. the opposite of `open/3`).
+  Only processes that have opened a table are allowed to close it.
   For `:ets` in-memory tables, this is the same as `destroy/1`.
+  For `:dets` disk-based tables, this will save any outstanding changes to the file.
   """
   @spec close(table_alias :: alias) :: :ok | {:error, any}
   def close(table_alias) when is_alias(table_alias) do
@@ -119,7 +118,8 @@ defmodule Pockets do
   end
 
   @doc """
-  Deletes the entry in table for a specific `key`
+  Deletes the entry in table for a specific `key`. Because this returns the table alias, you can
+  pipe multiple operations together.
 
   ## Examples
 
@@ -189,6 +189,49 @@ defmodule Pockets do
 
   @doc """
   Gets the value for a specific `key` in the table.
+
+  For tables of type `:set`, this function behaves like `Map.get/3`: the value is returned (if present),
+  otherwise the `default` is returned.
+
+  However, for tables of type `:bag` and `:duplicate_bag`, this function will _always_ return a list and the
+  `default` is ignored.  This has to do with keyword lists being the underlying data structure powering all
+  of this. 
+
+  ## Examples
+
+      iex> Pockets.new(:t1, :memory, type: :set)
+      {:ok, :t1}
+      iex> Pockets.get(:t1, :x, "Default Value")
+      "Default Value"
+
+      iex> Pockets.new(:t2, :memory, type: :bag)
+      {:ok, :t2}
+      iex> Pockets.get(:t2, :x, "Ignored Default Value")
+      []
+
+      # Bag
+      iex> Pockets.new(:t_bag, :memory, type: :bag)
+      {:ok, :t_bag}
+      iex> Pockets.put(:t_bag, :c, "Cream")
+      :t_bag
+      iex> Pockets.put(:t_bag, :c, "Sugar")
+      :t_bag
+      iex> Pockets.put(:t_bag, :c, "Sugar")
+      :t_bag
+      iex> Pockets.get(:t_bag, :c)
+      ["Cream", "Sugar"]
+
+      # Duplicate Bag
+      iex> Pockets.new(:t_dupe_bag, :memory, type: :duplicate_bag)
+      {:ok, :t_dupe_bag}
+      iex> Pockets.put(:t_dupe_bag, :c, "Cream")
+      :t_bag
+      iex> Pockets.put(:t_dupe_bag, :c, "Sugar")
+      :t_bag
+      iex> Pockets.put(:t_dupe_bag, :c, "Sugar")
+      :t_bag
+      iex> Pockets.get(:t_bag, :c)
+      ["Cream", "Sugar", "Sugar"]
   """
   @spec get(table_alias :: alias, any, any) :: alias
   def get(table_alias, key, default \\ nil) when is_alias(table_alias) do
@@ -198,7 +241,7 @@ defmodule Pockets do
   end
 
   @doc """
-  Checks if the table has the given key.
+  Checks if the table has the given `key`.
   """
   @spec has_key?(table_alias :: alias, any) :: boolean
   def has_key?(table_alias, key) when is_alias(table_alias) do
@@ -463,6 +506,20 @@ defmodule Pockets do
 
   @doc """
   Puts the given `value` under `key` in given table.
+
+  For tables of type `:set`, this will behave like `Map.put/3`.
+
+  Other table types aren't as straightforward. See the examples under `get/3`
+
+  ## Examples
+
+      # Set
+      iex> Pockets.new(:t_set)
+      {:ok, :t_set}
+      iex> Pockets.put(:t_set, :z, "Zulu")
+      :t_set
+      iex> Pockets.get(:t_set, :z)
+      "Zulu"
   """
   @spec put(table_alias :: alias, any, any) :: alias
   def put(table_alias, key, value) when is_alias(table_alias) do
@@ -775,7 +832,7 @@ defmodule Pockets do
   end
 
   # Shared functionality!
-  defp do_get(%Table{library: library, tid: tid}, key, default) do
+  defp do_get(%Table{library: library, tid: tid, type: :set}, key, default) do
     # TODO: if :bag, value might be like `[x: 1, x: 2, x: 3]`
     tid
     |> library.lookup(key)
@@ -783,6 +840,12 @@ defmodule Pockets do
       [{^key, value}] -> value
       _unrecognised_val -> default
     end
+  end
+
+  defp do_get(%Table{library: library, tid: tid, type: _bag_or_duplicate_bag}, key, _default) do
+    tid
+    |> library.lookup(key)
+    |> Keyword.values()
   end
 
   defp do_has_key?(%Table{library: library, tid: tid}, key) do

@@ -195,7 +195,7 @@ defmodule Pockets do
 
   However, for tables of type `:bag` and `:duplicate_bag`, this function will _always_ return a list and the
   `default` is ignored.  This has to do with keyword lists being the underlying data structure powering all
-  of this. 
+  of this.
 
   ## Examples
 

@@ -2,6 +2,9 @@
 
 `Pockets` is an Elixir wrapper around Erlang [ETS](https://erlang.org/doc/man/ets.html) and [DETS](https://erlang.org/doc/man/dets.html), Erlang's built-in term storage and disk-based term storage. `Pockets` aims to provide a simple and familiar interface for caching and persisting data by implementing many of the functions found in the built-in `Map` and `Keyword` modules. A pocket may hold data in memory or on disk.
 
+For those needing more power or versatility than what `:ets` or `:dets` can offer, Elixir includes
+  [`:mnesia`](http://erlang.org/doc/man/mnesia.html).
+
 ## Examples
 
 A simple memory-based cache requires no special arguments:
@@ -15,7 +18,7 @@ iex> Pockets.get(:my_cache, :c)
 "Charlie"
 ```
 
-Using a disk-based cache is appropriate when you need your data to persist, just supply a file path as the second argument:
+Using a disk-based cache is appropriate when you need your data to persist. Just supply a file path as the second argument to `Pockets.new/3`:
 
 ```
 iex> Pockets.new(:on_disk, "/tmp/cache.dets")
@@ -37,3 +40,5 @@ You can easily inspect your data, e.g. using `Pockets.to_map/1`:
 iex> Pockets.to_map(:on_disk)
 %{x: "xylophone", y: "yellow"}
 ```
+
+See the `Pockets` module documentation for more info!

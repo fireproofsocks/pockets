@@ -9,8 +9,6 @@ defmodule Pockets do
   its suitability for various use-cases.  For example, the limited support for concurrency provided by the `:ets(3)`
   module is not yet provided by `:dets`.
 
-  Support for `:bag`, `:duplicate_bag` types has not yet been tested.
-
   See also
 
   - [stash](https://github.com/whitfin/stash)
@@ -22,7 +20,7 @@ defmodule Pockets do
   require Logger
 
   @typedoc """
-  An alias is used to refer to a `Pockets` table: it is usually an atom, but in some cases
+  A table alias is used to refer to a `Pockets` table: it is usually an atom, but in some cases
   it may be a reference (e.g. in an `:ets` table with `named_table: false`).
   """
   @type alias :: atom | reference
@@ -609,7 +607,7 @@ defmodule Pockets do
   end
 
   @doc """
-  Truncates the given table; this removes all entries from the table while leaving its options in tact.
+  Truncates the given table; this removes all entries from the table while leaving its options intact.
 
   ## Examples
 

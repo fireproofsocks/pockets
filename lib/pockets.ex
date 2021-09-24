@@ -407,7 +407,7 @@ defmodule Pockets do
       iex> Pockets.new(:disk_cache, "/tmp/my.dets")
       {:ok, :disk_cache}
   """
-  @spec new(table_alias :: alias, :memory | binary, opts :: keyword) ::
+  @spec new(table_alias :: alias, :memory | (file :: String.t()), opts :: keyword) ::
           {:ok, alias} | {:error, any}
   def new(table_alias, storage \\ :memory, opts \\ [type: @default_table_type])
 
@@ -463,7 +463,8 @@ defmodule Pockets do
 
   ## Disk-based Tables
 
-  Because a file is involved, the `:create?` option provides a bit more control over whether or not
+  Because a file is involved, the `:create?` option provides a bit more control over how to handle cases when the
+  file does not exist.
 
   Options
 
@@ -480,6 +481,8 @@ defmodule Pockets do
       {:ok, :my_cache}
       iex> Pockets.open(:disk_cache, "/tmp/cache.dets")
       {:ok, :disk_cache}
+      iex> Pockets.open(:boo, "/tmp/does_not_exist_yet.dets", create?: true)
+      {:ok, :boo}
   """
   @spec open(Pockets.alias(), :memory | binary, opts :: keyword) :: any
   def open(table_alias, storage \\ :memory, opts \\ [type: @default_table_type])

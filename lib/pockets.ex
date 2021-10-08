@@ -259,9 +259,20 @@ defmodule Pockets do
   Increments the value at the given `key` by the given `step` (default 1).
   If the table does not exist or the value at the given `key` is not a number,
   no action is taken.
+
+  ## Examples
+
+      iex> Pockets.new(:inc_table)
+        :inc_table
+        |> Pockets.incr(:x)
+        |> Pockets.incr(:x)
+        |> Pockets.get(:x)
+      2
   """
+  @spec incr(alias(), key :: any(), step :: integer(), initial_value :: number()) ::
+          alias() | {:error, String.t()}
   def incr(table_alias, key, step \\ 1, initial_value \\ 0)
-      when is_integer(step) and is_number(initial_value) do
+      when is_alias(table_alias) and is_integer(step) and is_number(initial_value) do
     case get(table_alias, key, initial_value) do
       n when is_number(n) -> put(table_alias, key, n + step)
       _ -> table_alias

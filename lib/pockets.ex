@@ -15,7 +15,7 @@ defmodule Pockets do
   - ["What is ETS in Elixir?"](https://culttt.com/2016/10/05/what-is-ets-in-elixir/)
   """
 
-  alias Pockets.{DetsInfo, EtsInfo, Table, Registry}
+  alias Pockets.{DetsInfo, EtsInfo, Registry, Table}
 
   require Logger
 
@@ -93,11 +93,6 @@ defmodule Pockets do
     :read_concurrency
   ]
 
-  # TODO:
-  # inc, dec
-  # map (apply function to each element in a table) :dets.traverse/2 | :ets.??? fun2ms + select_replace
-  # detect() -- all/0 -- census/0 load all known :ets and :dets tables into Pocket for reference/inspection
-
   @doc """
   Closes the given table (i.e. the opposite of `open/3`).
   Only processes that have opened a table are allowed to close it.
@@ -106,12 +101,10 @@ defmodule Pockets do
   """
   @spec close(table_alias :: alias) :: :ok | {:error, any}
   def close(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> case do
-      nil -> {:error, "Pockets table not found: #{table_alias}"}
-      %{library: :ets} -> destroy(table_alias)
-      %{library: :dets, tid: tid} -> :dets.close(tid)
+    case Registry.lookup(table_alias) do
+      {:error, error} -> {:error, error}
+      {:ok, %{library: :ets}} -> destroy(table_alias)
+      {:ok, %{library: :dets, tid: tid}} -> :dets.close(tid)
     end
   end
 
@@ -134,11 +127,8 @@ defmodule Pockets do
   """
   @spec delete(table_alias :: alias, any) :: alias | {:error, any}
   def delete(table_alias, key) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> case do
-      nil -> {:error, "Pockets table not found: #{table_alias}"}
-      table -> do_delete(table, key)
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_delete(table, key)
     end
   end
 
@@ -156,17 +146,15 @@ defmodule Pockets do
   """
   @spec destroy(table_alias :: alias) :: :ok | {:error, any}
   def destroy(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_destroy()
-    |> case do
-      :ok -> Registry.unregister(table_alias)
-      {:error, error} -> {:error, error}
+    with {:ok, table} <- Registry.lookup(table_alias),
+         :ok <- do_destroy(table) do
+      Registry.unregister(table_alias)
     end
   end
 
   @doc """
   Checks if the given table is empty.
+  This will return `true` if the given table does not exist.
 
   ## Examples
 
@@ -175,14 +163,27 @@ defmodule Pockets do
       iex> Pockets.empty?(tid)
       true
   """
-  @spec empty?(table_alias :: Pockets.alias()) :: boolean
+  @spec empty?(table_alias :: Pockets.alias()) :: boolean()
   def empty?(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> case do
-      nil -> true
-      table -> do_info(table, :size) == 0
+    case Registry.lookup(table_alias) do
+      {:ok, table} -> do_info(table, :size) == 0
+      _ -> true
     end
+  end
+
+  @doc """
+  Checks if the table exists in the `Pockets` registry.
+
+  Note: this function does _not_ check whether an ETS or DETS table was
+  created outside of `Pockets` (e.g. via ETS or DETS directly).
+  For those cases, see [`:ets.whereis/1`](https://erlang.org/doc/man/ets.html#whereis-1)
+  or [`:dets.info/1`](https://erlang.org/doc/man/dets.html#info-1).
+  """
+  @doc since: "1.1.0"
+  @spec exists?(table_alias :: Pockets.alias()) :: boolean()
+  def exists?(table_alias) when is_alias(table_alias) do
+    table_alias
+    |> Registry.exists?()
   end
 
   @doc """
@@ -194,6 +195,8 @@ defmodule Pockets do
   However, for tables of type `:bag` and `:duplicate_bag`, this function will _always_ return a list and the
   `default` is ignored.  This has to do with keyword lists being the underlying data structure powering all
   of this.
+
+  The default value will be returned if the table does not exist.
 
   ## Examples
 
@@ -231,61 +234,71 @@ defmodule Pockets do
       iex> Pockets.get(:t_bag, :c)
       ["Cream", "Sugar", "Sugar"]
   """
-  @spec get(table_alias :: alias, any, any) :: alias
+  @spec get(table_alias :: alias, any, any) :: any() | :error
   def get(table_alias, key, default \\ nil) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_get(key, default)
+    case Registry.lookup(table_alias) do
+      {:ok, table} -> do_get(table, key, default)
+      {:error, _} -> default
+    end
   end
 
   @doc """
   Checks if the table has the given `key`.
+
+  `false` is returned if the table does not exist.
   """
-  @spec has_key?(table_alias :: alias, any) :: boolean
+  @spec has_key?(table_alias :: alias, any) :: boolean()
   def has_key?(table_alias, key) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_has_key?(key)
+    case Registry.lookup(table_alias) do
+      {:ok, table} -> do_has_key?(table, key)
+      _ -> false
+    end
   end
 
   @doc """
   Gets info about the given table.
+  An `:error` tuple is returned if the table does not exist.
   """
-  @spec info(table_alias :: alias) :: EtsInfo.t() | DetsInfo.t()
+  @spec info(table_alias :: alias) :: EtsInfo.t() | DetsInfo.t() | {:error, String.t()}
   def info(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_info()
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_info(table)
+    end
   end
 
   @doc """
   Gets info about the given `item` in the table. The available items depend on the type of table.
+  An error tuple is returned if the table does not exist.
   """
-  @spec info(table_alias :: alias, atom) :: any
+  @spec info(table_alias :: alias, atom) :: any() | {:error, String.t()}
   def info(table_alias, item) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_info(item)
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_info(table, item)
+    end
   end
 
   @doc """
   Gets a list of keys in the given table. For larger tables, consider `keys_stream/1`
+  An error tuple is returned if the table does not exist.
   """
-  @spec keys(table_alias :: alias) :: list
+  @spec keys(table_alias :: alias) :: list | {:error, String.t()}
   def keys(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> get_keys_lazy()
-    |> Enum.to_list()
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      table
+      |> get_keys_lazy()
+      |> Enum.to_list()
+    end
   end
 
   @doc """
   Gets a list of keys in the given table as a stream.
+  An error tuple is returned if the table does not exist.
   """
   def keys_stream(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> get_keys_lazy()
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      table
+      |> get_keys_lazy()
+    end
   end
 
   @doc """
@@ -323,23 +336,18 @@ defmodule Pockets do
       iex> Pockets.to_map(:my_first)
       %{a: "apple", b: "boy", c: "cat", x: "xray", y: "yellow", z: "zebra"}
   """
-  @spec merge(alias(), input :: alias | list | map) :: alias
-  def merge(table_alias, input) when is_alias(table_alias) and is_alias(input) do
-    case Registry.lookup(input) do
-      nil ->
-        {:error, "Table does not exist: #{input}"}
-
-      table2 ->
-        table_alias
-        |> Registry.lookup()
-        |> do_merge_tables(table2)
+  @spec merge(alias(), input :: alias() | list | map) :: alias()
+  def merge(table_alias1, table_alias2) when is_alias(table_alias1) and is_alias(table_alias2) do
+    with {:ok, table2} <- Registry.lookup(table_alias2),
+         {:ok, table1} <- Registry.lookup(table_alias1) do
+      do_merge_tables(table1, table2)
     end
   end
 
   def merge(table_alias, input) when is_alias(table_alias) when is_map(input) or is_list(input) do
-    table_alias
-    |> Registry.lookup()
-    |> do_merge_enum(input)
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_merge_enum(table, input)
+    end
   end
 
   @doc """
@@ -416,7 +424,7 @@ defmodule Pockets do
     |> Registry.exists?()
     |> case do
       true ->
-        Logger.warn("Table #{table_alias} already exists")
+        Logger.debug("Table #{table_alias} already exists")
         {:ok, table_alias}
 
       false ->
@@ -522,11 +530,11 @@ defmodule Pockets do
       iex> Pockets.get(:t_set, :z)
       "Zulu"
   """
-  @spec put(table_alias :: alias, any, any) :: alias
+  @spec put(table_alias :: alias(), any, any) :: alias() | {:error, String.t()}
   def put(table_alias, key, value) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_put(key, value)
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_put(table, key, value)
+    end
   end
 
   @doc """
@@ -543,11 +551,8 @@ defmodule Pockets do
   @spec save_as(table_alias :: alias, binary, keyword) :: :ok | {:error, any}
   def save_as(table_alias, target_file, opts \\ [])
       when is_alias(table_alias) and is_binary(target_file) do
-    table_alias
-    |> Registry.lookup()
-    |> case do
-      nil -> {:error, "Table alias not found #{table_alias}"}
-      table -> do_save_as(table, target_file, opts)
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      do_save_as(table, target_file, opts)
     end
   end
 
@@ -566,47 +571,60 @@ defmodule Pockets do
 
   @doc """
   Returns the size of the given table, measured by the number of entries.
+  Zero is returned if the table does not exist.
   """
   @spec size(table_alias :: Pockets.alias()) :: integer
   def size(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> do_info(:size)
+    case Registry.lookup(table_alias) do
+      {:ok, table} -> do_info(table, :size)
+      _ -> 0
+    end
   end
 
   @doc """
   Outputs the contents of the given table to a list.
-
+  If the table does not exist, an empty list is returned.
   Although this is useful for debugging purposes, for larger data sets consider using `to_stream/1` instead.
   """
   @spec to_list(table_alias :: alias) :: list
   def to_list(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> get_contents_lazy()
-    |> Enum.to_list()
+    case Registry.lookup(table_alias) do
+      {:ok, table} ->
+        table
+        |> get_contents_lazy()
+        |> Enum.to_list()
+
+      _ ->
+        []
+    end
   end
 
   @doc """
   Outputs the contents of the table to a map.
-
+  If the table does not exist, an empty map is returned.
   Although this is useful for debugging purposes, for larger data sets consider using `to_stream/1` instead.
   """
-  @spec to_map(table_alias :: alias) :: map
+  @spec to_map(table_alias :: alias) :: map()
   def to_map(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> get_contents_lazy()
-    |> Enum.into(%{})
+    case Registry.lookup(table_alias) do
+      {:ok, table} ->
+        table
+        |> get_contents_lazy()
+        |> Enum.into(%{})
+
+      _ ->
+        %{}
+    end
   end
 
   @doc """
   Outputs the contents of the table to a stream for lazy evaluation.
+  Returns an error tuple if the table does not exist.
   """
   def to_stream(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> get_contents_lazy()
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      get_contents_lazy(table)
+    end
   end
 
   @doc """
@@ -623,18 +641,12 @@ defmodule Pockets do
   """
   @spec truncate(table_alias :: alias) :: alias | {:error, any}
   def truncate(table_alias) when is_alias(table_alias) do
-    table_alias
-    |> Registry.lookup()
-    |> case do
-      %{library: library, tid: tid} ->
-        case library.delete_all_objects(tid) do
-          :ok -> table_alias
-          true -> table_alias
-          {:error, error} -> {:error, error}
-        end
-
-      nil ->
-        {:error, "Table not found: #{table_alias}"}
+    with {:ok, %{library: library, tid: tid}} <- Registry.lookup(table_alias) do
+      case library.delete_all_objects(tid) do
+        :ok -> table_alias
+        true -> table_alias
+        {:error, error} -> {:error, error}
+      end
     end
   end
 
@@ -718,20 +730,18 @@ defmodule Pockets do
   defp get_keys_lazy(%{tid: tid, library: library}) do
     Stream.resource(
       fn -> [] end,
-      fn acc ->
-        case acc do
-          [] ->
-            case library.first(tid) do
-              :"$end_of_table" -> {:halt, acc}
-              first_key -> {[first_key], first_key}
-            end
+      fn
+        [] ->
+          case library.first(tid) do
+            :"$end_of_table" -> {:halt, []}
+            first_key -> {[first_key], first_key}
+          end
 
-          acc ->
-            case library.next(tid, acc) do
-              :"$end_of_table" -> {:halt, acc}
-              next_key -> {[next_key], next_key}
-            end
-        end
+        acc ->
+          case library.next(tid, acc) do
+            :"$end_of_table" -> {:halt, acc}
+            next_key -> {[next_key], next_key}
+          end
       end,
       fn _acc -> :ok end
     )
@@ -740,20 +750,18 @@ defmodule Pockets do
   defp get_contents_lazy(%{tid: tid, library: library}) do
     Stream.resource(
       fn -> [] end,
-      fn acc ->
-        case acc do
-          [] ->
-            case library.first(tid) do
-              :"$end_of_table" -> {:halt, acc}
-              first_key -> {library.lookup(tid, first_key), first_key}
-            end
+      fn
+        [] ->
+          case library.first(tid) do
+            :"$end_of_table" -> {:halt, []}
+            first_key -> {library.lookup(tid, first_key), first_key}
+          end
 
-          acc ->
-            case library.next(tid, acc) do
-              :"$end_of_table" -> {:halt, acc}
-              next_key -> {library.lookup(tid, next_key), next_key}
-            end
-        end
+        acc ->
+          case library.next(tid, acc) do
+            :"$end_of_table" -> {:halt, acc}
+            next_key -> {library.lookup(tid, next_key), next_key}
+          end
       end,
       fn _acc -> :ok end
     )
@@ -821,8 +829,6 @@ defmodule Pockets do
       # <-- req'd???
       |> to_string()
       |> File.rm()
-    else
-      {:error, error} -> {:error, error}
     end
   end
 
@@ -834,7 +840,6 @@ defmodule Pockets do
 
   # Shared functionality!
   defp do_get(%Table{library: library, tid: tid, type: :set}, key, default) do
-    # TODO: if :bag, value might be like `[x: 1, x: 2, x: 3]`
     tid
     |> library.lookup(key)
     |> case do
@@ -853,7 +858,7 @@ defmodule Pockets do
     library.member(tid, key)
   end
 
-  @spec do_info(Table.t() | nil) :: DetsInfo.t() | EtsInfo.t() | {:error, any}
+  @spec do_info(Table.t()) :: DetsInfo.t() | EtsInfo.t() | {:error, any}
   defp do_info(%Table{library: :dets, tid: tid}) do
     tid
     |> :dets.info()
@@ -866,9 +871,7 @@ defmodule Pockets do
     |> EtsInfo.new()
   end
 
-  defp do_info(nil), do: {:error, "Table not found"}
-
-  @spec do_info(Table.t() | nil, item :: any) :: any
+  @spec do_info(Table.t(), item :: any) :: any
   defp do_info(%Table{library: :dets, tid: tid}, item) when item in @dets_info_items do
     :dets.info(tid, item)
   end
@@ -876,8 +879,6 @@ defmodule Pockets do
   defp do_info(%Table{library: :ets, tid: tid}, item) when item in @ets_info_items do
     :ets.info(tid, item)
   end
-
-  defp do_info(nil, _), do: {:error, "Table not found"}
 
   defp do_merge_tables(t1, t2) do
     t2

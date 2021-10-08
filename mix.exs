@@ -13,6 +13,7 @@ defmodule Pockets.MixProject do
       elixir: "~> 1.10",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: aliases(),
       package: package(),
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
@@ -67,6 +68,12 @@ defmodule Pockets.MixProject do
     [
       mod: {Pockets.Application, []},
       extra_applications: [:logger]
+    ]
+  end
+
+  defp aliases do
+    [
+      lint: ["format --check-formatted", "credo --strict"]
     ]
   end
 

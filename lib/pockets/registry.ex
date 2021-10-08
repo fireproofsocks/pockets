@@ -9,7 +9,7 @@ defmodule Pockets.Registry do
   def start_link(_args \\ %{}), do: GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
 
   @doc """
-  Checks to see if the given table exists.
+  Checks to see if the given table has been defined inside of `Pockets`.
   """
   def exists?(table_alias) when is_alias(table_alias) do
     GenServer.call(__MODULE__, {:exists?, table_alias})
@@ -29,9 +29,17 @@ defmodule Pockets.Registry do
 
   @doc """
   Looks up the info for the given `table_alias`.
+  Returns an `:error` tuple if the table is not defined inside Pockets.
+
+  See note for `Pockets.exists?/1`
   """
+  @spec lookup(table_alias :: Pockets.alias()) ::
+          {:ok, Pockets.Table.t()} | {:error, String.t()}
   def lookup(table_alias) when is_alias(table_alias) do
-    GenServer.call(__MODULE__, {:lookup, table_alias})
+    case GenServer.call(__MODULE__, {:lookup, table_alias}) do
+      :error -> {:error, "Pockets table not found: #{table_alias}"}
+      {:ok, info} -> {:ok, info}
+    end
   end
 
   @doc """
@@ -69,7 +77,7 @@ defmodule Pockets.Registry do
 
   @impl true
   def handle_call({:lookup, table_alias}, _from, state) do
-    {:reply, Map.get(state, table_alias), state}
+    {:reply, Map.fetch(state, table_alias), state}
   end
 
   @impl true

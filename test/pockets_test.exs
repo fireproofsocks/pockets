@@ -94,6 +94,17 @@ defmodule PocketsTest do
     end
   end
 
+  describe "exists?/1" do
+    test "true when table exists" do
+      {:ok, _} = Pockets.new(@ets_tid, :memory)
+      assert true == Pockets.exists?(@ets_tid)
+    end
+
+    test "false when table does not exist" do
+      refute Pockets.exists?(:does_not_exist)
+    end
+  end
+
   describe "get/3 type: :set" do
     test "returns value when key exists" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
@@ -103,6 +114,10 @@ defmodule PocketsTest do
     test "returns default when key does not exist" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
       assert "my-default" == Pockets.get(:test, :missing, "my-default")
+    end
+
+    test "returns default when table does not exist" do
+      assert "my-default" == Pockets.get(:does_not_exist, :missing, "my-default")
     end
   end
 
@@ -259,6 +274,10 @@ defmodule PocketsTest do
       {:ok, _} = Pockets.open(@ets_tid, :memory)
       assert @ets_tid == Pockets.put(@ets_tid, :foo, :bar)
     end
+
+    test "returns :error tuple when table does not exist" do
+      assert {:error, _} = Pockets.put(:does_not_exist, :foo, :bar)
+    end
   end
 
   describe "save_as/3" do
@@ -266,7 +285,7 @@ defmodule PocketsTest do
       {:ok, _} = Pockets.open(@ets_tid, :memory)
       Pockets.merge(@ets_tid, %{zen: "art", motorcycle: "maintenance"})
       assert :ok == Pockets.save_as(@ets_tid, @tmp_dets_path)
-      assert {:ok, tid2} = Pockets.open(:t2, @tmp_dets_path)
+      assert {:ok, _tid2} = Pockets.open(:t2, @tmp_dets_path)
       assert "art" == Pockets.get(:t2, :zen)
     end
 
@@ -348,6 +367,10 @@ defmodule PocketsTest do
       {:ok, _} = Pockets.new(:t1)
       Pockets.merge(:t1, %{zen: "art", motorcycle: "maintenance"})
       assert %{zen: "art", motorcycle: "maintenance"} == Pockets.to_map(:t1)
+    end
+
+    test "returns empty map when table does not exist" do
+      assert %{} == Pockets.to_map(:does_not_exist)
     end
   end
 

@@ -19,7 +19,7 @@ defmodule PocketsTest do
 
         _ ->
           :ets.delete(@ets_tid)
-          #               Pockets.Registry.unregister(@ets_tid)
+          # Pockets.Registry.unregister(@ets_tid)
       end
 
       Pockets.Registry.flush()
@@ -160,6 +160,57 @@ defmodule PocketsTest do
     test "false when key exists" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
       assert false == Pockets.has_key?(:test, :foo)
+    end
+  end
+
+  describe "incr/4" do
+    test "adds to new key", %{test: test} do
+      {:ok, _} = Pockets.new(:"#{test}")
+
+      :"#{test}"
+      |> Pockets.incr(:n)
+      |> Pockets.incr(:n)
+      |> Pockets.incr(:n)
+
+      assert 3 == Pockets.get(:"#{test}", :n)
+    end
+
+    test "adds to new key using custom step", %{test: test} do
+      {:ok, _} = Pockets.new(:"#{test}")
+
+      :"#{test}"
+      |> Pockets.incr(:n, 10)
+      |> Pockets.incr(:n, 10)
+      |> Pockets.incr(:n, 10)
+
+      assert 30 == Pockets.get(:"#{test}", :n)
+    end
+
+    test "adds to new key using custom initial value", %{test: test} do
+      {:ok, _} = Pockets.new(:"#{test}")
+
+      :"#{test}"
+      |> Pockets.incr(:n, 1, 10)
+      |> Pockets.incr(:n, 1)
+      |> Pockets.incr(:n, 1)
+
+      assert 13 == Pockets.get(:"#{test}", :n)
+    end
+
+    test "no action when existing key is not numeric", %{test: test} do
+      {:ok, _} = Pockets.new(:"#{test}")
+
+      :"#{test}"
+      |> Pockets.put(:n, "Not Numeric")
+      |> Pockets.incr(:n)
+
+      assert "Not Numeric" == Pockets.get(:"#{test}", :n)
+    end
+
+    test ":error when table does not exist", %{test: test} do
+      assert {:error, _} =
+               :"#{test}"
+               |> Pockets.incr(:n)
     end
   end
 

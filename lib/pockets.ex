@@ -256,6 +256,19 @@ defmodule Pockets do
   end
 
   @doc """
+  Increments the value at the given `key` by the given `step` (default 1).
+  If the table does not exist or the value at the given `key` is not a number,
+  no action is taken.
+  """
+  def incr(table_alias, key, step \\ 1, initial_value \\ 0)
+      when is_integer(step) and is_number(initial_value) do
+    case get(table_alias, key, initial_value) do
+      n when is_number(n) -> put(table_alias, key, n + step)
+      _ -> table_alias
+    end
+  end
+
+  @doc """
   Gets info about the given table.
   An `:error` tuple is returned if the table does not exist.
   """

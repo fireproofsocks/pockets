@@ -186,6 +186,17 @@ defmodule PocketsTest do
       assert 30 == Pockets.get(:"#{test}", :n)
     end
 
+    test "decrements", %{test: test} do
+      {:ok, _} = Pockets.new(:"#{test}")
+
+      :"#{test}"
+      |> Pockets.incr(:n, -1)
+      |> Pockets.incr(:n, -1)
+      |> Pockets.incr(:n, -1)
+
+      assert -3 == Pockets.get(:"#{test}", :n)
+    end
+
     test "adds to new key using custom initial value", %{test: test} do
       {:ok, _} = Pockets.new(:"#{test}")
 

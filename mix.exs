@@ -2,7 +2,7 @@ defmodule Pockets.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/fireproofsocks/pockets"
-  @version "1.1.0"
+  @version "1.2.0"
 
   def project do
     [
@@ -79,10 +79,10 @@ defmodule Pockets.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.22.5", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.13", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.5.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.25.3", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.14.3", only: [:dev, :test], runtime: false}
     ]
   end
 end

@@ -268,7 +268,17 @@ defmodule Pockets do
         |> Pockets.incr(:x)
         |> Pockets.get(:x)
       2
+
+  Decrement a value:
+
+      iex> Pockets.new(:decr_table)
+        :decr_table
+        |> Pockets.incr(:x, -1, 10)
+        |> Pockets.incr(:x, -1)
+        |> Pockets.get(:x)
+      8
   """
+  @doc since: "1.2.0"
   @spec incr(alias(), key :: any(), step :: integer(), initial_value :: number()) ::
           alias() | {:error, String.t()}
   def incr(table_alias, key, step \\ 1, initial_value \\ 0)

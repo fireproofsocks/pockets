@@ -125,7 +125,7 @@ defmodule Pockets do
       iex> Pockets.to_map(:my_cache)
       %{a: "apple", c: "cat"}
   """
-  @spec delete(table_alias :: alias, any) :: alias | {:error, any}
+  @spec delete(table_alias :: alias, any) :: alias() | {:error, any}
   def delete(table_alias, key) when is_alias(table_alias) do
     with {:ok, table} <- Registry.lookup(table_alias) do
       do_delete(table, key)
@@ -163,7 +163,7 @@ defmodule Pockets do
       iex> Pockets.empty?(tid)
       true
   """
-  @spec empty?(table_alias :: Pockets.alias()) :: boolean()
+  @spec empty?(table_alias :: alias()) :: boolean()
   def empty?(table_alias) when is_alias(table_alias) do
     case Registry.lookup(table_alias) do
       {:ok, table} -> do_info(table, :size) == 0
@@ -180,10 +180,49 @@ defmodule Pockets do
   or [`:dets.info/1`](https://erlang.org/doc/man/dets.html#info-1).
   """
   @doc since: "1.1.0"
-  @spec exists?(table_alias :: Pockets.alias()) :: boolean()
+  @spec exists?(table_alias :: alias()) :: boolean()
   def exists?(table_alias) when is_alias(table_alias) do
     table_alias
     |> Registry.exists?()
+  end
+
+  @doc """
+  Akin to `Enum.filter/2`, this function will pare down the contents of the given
+  table preserving only entries for which `fun` returns a truthy value.
+  Similar to using `Enum.filter/2` on maps, the `fun` receives a tuple representing
+  the key and the value stored at that location.
+
+  ## Examples
+
+      iex> Pockets.new(:ex)
+      iex> Pockets.merge(:ex, %{a: 12, b: 7, c: 22, d: 8})
+      iex> Pockets.filter(:ex, fn {_, v} -> v > 10 end)
+      iex> Pockets.to_map(:ex)
+      %{a: 12, c: 22}
+
+  ## See Also
+
+  - `reject/2`
+  """
+
+  @doc since: "1.3.0"
+  @spec filter(table_alias :: alias(), (any() -> as_boolean(term()))) ::
+          alias() | {:error, String.t()}
+  def filter(table_alias, fun) do
+    # This version WORKS, but it doesn't use STREAMS
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      table
+      |> get_contents_lazy()
+      |> Enum.to_list()
+      |> Enum.each(fn {k, v} ->
+        case fun.({k, v}) do
+          false -> do_delete(table, k)
+          _ -> nil
+        end
+      end)
+
+      table_alias
+    end
   end
 
   @doc """
@@ -526,7 +565,7 @@ defmodule Pockets do
       iex> Pockets.open(:boo, "/tmp/does_not_exist_yet.dets", create?: true)
       {:ok, :boo}
   """
-  @spec open(Pockets.alias(), :memory | binary, opts :: keyword) :: any
+  @spec open(alias(), :memory | binary, opts :: keyword) :: any
   def open(table_alias, storage \\ :memory, opts \\ [type: @default_table_type])
 
   def open(table_alias, :memory, opts) when is_alias(table_alias) do
@@ -572,6 +611,45 @@ defmodule Pockets do
   end
 
   @doc """
+  Akin to `Enum.reject/2`, this function will pare down the contents of the given
+  table deleting entries for which `fun` returns a truthy value.
+  Similar to using `Enum.filter/2` on maps, the `fun` receives a tuple representing
+  the key and the value stored at that location.
+
+  ## Examples
+
+      iex> Pockets.new(:ex)
+      iex> Pockets.merge(:ex, %{a: 12, b: 7, c: 22, d: 8})
+      iex> Pockets.reject(:ex, fn {_, v} -> v > 10 end)
+      iex> Pockets.to_map(:ex)
+      %{b: 7, d: 8}
+
+  ## See Also
+
+  - `filter/2`
+  """
+
+  @doc since: "1.3.0"
+  @spec reject(table_alias :: alias(), (any() -> as_boolean(term()))) ::
+          alias() | {:error, String.t()}
+  def reject(table_alias, fun) do
+    # This version WORKS, but it doesn't use STREAMS
+    with {:ok, table} <- Registry.lookup(table_alias) do
+      table
+      |> get_contents_lazy()
+      |> Enum.to_list()
+      |> Enum.each(fn {k, v} ->
+        case fun.({k, v}) do
+          false -> nil
+          _ -> do_delete(table, k)
+        end
+      end)
+
+      table_alias
+    end
+  end
+
+  @doc """
   Both `:ets` and `:dets` files can be saved to disk. You can use this function to persist an in-memory `:ets`
   file to disk for later use, or you can use it to make a copy of an existing `:dets` table.
 
@@ -607,7 +685,7 @@ defmodule Pockets do
   Returns the size of the given table, measured by the number of entries.
   Zero is returned if the table does not exist.
   """
-  @spec size(table_alias :: Pockets.alias()) :: integer
+  @spec size(table_alias :: alias()) :: integer
   def size(table_alias) when is_alias(table_alias) do
     case Registry.lookup(table_alias) do
       {:ok, table} -> do_info(table, :size)
@@ -620,7 +698,7 @@ defmodule Pockets do
   If the table does not exist, an empty list is returned.
   Although this is useful for debugging purposes, for larger data sets consider using `to_stream/1` instead.
   """
-  @spec to_list(table_alias :: alias) :: list
+  @spec to_list(table_alias :: alias()) :: list
   def to_list(table_alias) when is_alias(table_alias) do
     case Registry.lookup(table_alias) do
       {:ok, table} ->
@@ -638,7 +716,7 @@ defmodule Pockets do
   If the table does not exist, an empty map is returned.
   Although this is useful for debugging purposes, for larger data sets consider using `to_stream/1` instead.
   """
-  @spec to_map(table_alias :: alias) :: map()
+  @spec to_map(table_alias :: alias()) :: map()
   def to_map(table_alias) when is_alias(table_alias) do
     case Registry.lookup(table_alias) do
       {:ok, table} ->
@@ -801,10 +879,6 @@ defmodule Pockets do
     )
   end
 
-  #  defp contents_accumulator([], library, tid) do
-  #
-  #  end
-
   # :ets.new/2 does not take a nice keyword list as its options: it takes a mix of values. Yuck.
   defp prepare_ets_options(opts) do
     relevant_opts = Keyword.take(opts, Keyword.keys(@default_ets_opts))
@@ -842,17 +916,17 @@ defmodule Pockets do
   end
 
   # :dets.delete returns :ok on success, {:error, reason} on fail
-  defp do_delete(%Table{library: :dets, alias: alias, tid: tid}, key) do
+  defp do_delete(%Table{library: :dets, alias: talias, tid: tid}, key) do
     case :dets.delete(tid, key) do
-      :ok -> alias
+      :ok -> talias
       {:error, error} -> {:error, error}
     end
   end
 
   # :ets.delete returns true on success
-  defp do_delete(%Table{library: :ets, alias: alias, tid: tid}, key) do
+  defp do_delete(%Table{library: :ets, alias: talias, tid: tid}, key) do
     case :ets.delete(tid, key) do
-      true -> alias
+      true -> talias
     end
   end
 

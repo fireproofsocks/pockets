@@ -105,6 +105,26 @@ defmodule PocketsTest do
     end
   end
 
+  describe "filter/2" do
+    test "returns only entries for which fun returns a truthy value (ets)" do
+      {:ok, _} = Pockets.new(@ets_tid, :memory)
+      Pockets.merge(@ets_tid, %{a: 12, b: 7, c: 22, d: 8})
+      Pockets.filter(@ets_tid, fn {_, v} -> v > 10 end)
+      assert %{a: 12, c: 22} == Pockets.to_map(@ets_tid)
+    end
+
+    test "returns only entries for which fun returns a truthy value (dets)" do
+      Pockets.new(:test, @tmp_dets_path)
+      Pockets.merge(:test, %{a: 12, b: 7, c: 22, d: 8})
+      Pockets.filter(:test, fn {_, v} -> v > 10 end)
+      assert %{a: 12, c: 22} == Pockets.to_map(:test)
+    end
+
+    test ":error when table does not exist" do
+      assert {:error, _} = Pockets.filter(:does_not_exist, fn {_, v} -> v > 10 end)
+    end
+  end
+
   describe "get/3 type: :set" do
     test "returns value when key exists" do
       {:ok, _} = Pockets.open(:test, @persistent_dets_path)
@@ -339,6 +359,26 @@ defmodule PocketsTest do
 
     test "returns :error tuple when table does not exist" do
       assert {:error, _} = Pockets.put(:does_not_exist, :foo, :bar)
+    end
+  end
+
+  describe "reject/2" do
+    test "removes entries for which fun returns a truthy value (ets)" do
+      {:ok, _} = Pockets.new(@ets_tid, :memory)
+      Pockets.merge(@ets_tid, %{a: 12, b: 7, c: 22, d: 8})
+      Pockets.reject(@ets_tid, fn {_, v} -> v > 10 end)
+      assert %{b: 7, d: 8} == Pockets.to_map(@ets_tid)
+    end
+
+    test "removes entries for which fun returns a truthy value (dets)" do
+      Pockets.new(:test, @tmp_dets_path)
+      Pockets.merge(:test, %{a: 12, b: 7, c: 22, d: 8})
+      Pockets.reject(:test, fn {_, v} -> v > 10 end)
+      assert %{b: 7, d: 8} == Pockets.to_map(:test)
+    end
+
+    test ":error when table does not exist" do
+      assert {:error, _} = Pockets.reject(:does_not_exist, fn {_, v} -> v > 10 end)
     end
   end
 

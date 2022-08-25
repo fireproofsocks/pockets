@@ -192,11 +192,20 @@ defmodule Pockets do
   Similar to using `Enum.filter/2` on maps, the `fun` receives a tuple representing
   the key and the value stored at that location.
 
+  > ### This Updates the Table In Place! {: .warning}
+  >
+  > This operation updates the table in place, so it has the potential to delete
+  > every item in the table. Use it carefully!
+  >
+  > If a safer alternative is needed, use `Pockets.to_stream/1` to manipulate values
+  > and feed the results into a new table.
+
   ## Examples
 
       iex> Pockets.new(:ex)
       iex> Pockets.merge(:ex, %{a: 12, b: 7, c: 22, d: 8})
       iex> Pockets.filter(:ex, fn {_, v} -> v > 10 end)
+      :ok
       iex> Pockets.to_map(:ex)
       %{a: 12, c: 22}
 
@@ -207,7 +216,7 @@ defmodule Pockets do
 
   @doc since: "1.3.0"
   @spec filter(table_alias :: alias(), (any() -> as_boolean(term()))) ::
-          alias() | {:error, String.t()}
+          :ok | {:error, String.t()}
   def filter(table_alias, fun) do
     # This version WORKS, but it doesn't use STREAMS
     with {:ok, table} <- Registry.lookup(table_alias) do
@@ -220,8 +229,6 @@ defmodule Pockets do
           _ -> nil
         end
       end)
-
-      table_alias
     end
   end
 
@@ -616,6 +623,14 @@ defmodule Pockets do
   Similar to using `Enum.filter/2` on maps, the `fun` receives a tuple representing
   the key and the value stored at that location.
 
+  > ### This Updates the Table In Place! {: .warning}
+  >
+  > This operation updates the table in place, so it has the potential to delete
+  > every item in the table. Use it carefully!
+  >
+  > If a safer alternative is needed, use `Pockets.to_stream/1` to manipulate values
+  > and feed the results into a new table.
+
   ## Examples
 
       iex> Pockets.new(:ex)
@@ -631,7 +646,7 @@ defmodule Pockets do
 
   @doc since: "1.3.0"
   @spec reject(table_alias :: alias(), (any() -> as_boolean(term()))) ::
-          alias() | {:error, String.t()}
+          :ok | {:error, String.t()}
   def reject(table_alias, fun) do
     # This version WORKS, but it doesn't use STREAMS
     with {:ok, table} <- Registry.lookup(table_alias) do
@@ -644,8 +659,6 @@ defmodule Pockets do
           _ -> do_delete(table, k)
         end
       end)
-
-      table_alias
     end
   end
 

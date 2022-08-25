@@ -42,7 +42,7 @@ defmodule Pockets.MixProject do
   defp package do
     [
       maintainers: ["Everett Griffiths"],
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       logo: "assets/logo.png",
       links: links(),
       files: [
@@ -79,10 +79,10 @@ defmodule Pockets.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.5.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.1.0", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.25.3", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.14.3", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.2.0", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.28.5", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.14.6", only: [:dev, :test], runtime: false}
     ]
   end
 end

@@ -109,14 +109,14 @@ defmodule PocketsTest do
     test "returns only entries for which fun returns a truthy value (ets)" do
       {:ok, _} = Pockets.new(@ets_tid, :memory)
       Pockets.merge(@ets_tid, %{a: 12, b: 7, c: 22, d: 8})
-      Pockets.filter(@ets_tid, fn {_, v} -> v > 10 end)
+      assert :ok = Pockets.filter(@ets_tid, fn {_, v} -> v > 10 end)
       assert %{a: 12, c: 22} == Pockets.to_map(@ets_tid)
     end
 
     test "returns only entries for which fun returns a truthy value (dets)" do
       Pockets.new(:test, @tmp_dets_path)
       Pockets.merge(:test, %{a: 12, b: 7, c: 22, d: 8})
-      Pockets.filter(:test, fn {_, v} -> v > 10 end)
+      assert :ok = Pockets.filter(:test, fn {_, v} -> v > 10 end)
       assert %{a: 12, c: 22} == Pockets.to_map(:test)
     end
 
@@ -366,14 +366,14 @@ defmodule PocketsTest do
     test "removes entries for which fun returns a truthy value (ets)" do
       {:ok, _} = Pockets.new(@ets_tid, :memory)
       Pockets.merge(@ets_tid, %{a: 12, b: 7, c: 22, d: 8})
-      Pockets.reject(@ets_tid, fn {_, v} -> v > 10 end)
+      assert :ok = Pockets.reject(@ets_tid, fn {_, v} -> v > 10 end)
       assert %{b: 7, d: 8} == Pockets.to_map(@ets_tid)
     end
 
     test "removes entries for which fun returns a truthy value (dets)" do
       Pockets.new(:test, @tmp_dets_path)
       Pockets.merge(:test, %{a: 12, b: 7, c: 22, d: 8})
-      Pockets.reject(:test, fn {_, v} -> v > 10 end)
+      assert :ok = Pockets.reject(:test, fn {_, v} -> v > 10 end)
       assert %{b: 7, d: 8} == Pockets.to_map(:test)
     end
 

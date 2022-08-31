@@ -3,6 +3,11 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.4.0
+
+Changes the output format for `Pockets.filter/2` and `Pockets.reject/2`: success now
+returns an `:ok` tuple with a count of the records removed.
+
 ## v1.3.0
 
 Adds support for `Pockets.filter/2` and `Pockets.reject/2` for in-place editing of tables.

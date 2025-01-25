@@ -79,10 +79,10 @@ defmodule Pockets.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.6.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.2.0", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.28.5", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.14.6", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7.11", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4.5", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.36.1", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.18.4", only: [:dev, :test], runtime: false}
     ]
   end
 end

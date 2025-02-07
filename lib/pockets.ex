@@ -345,7 +345,8 @@ defmodule Pockets do
   end
 
   @doc """
-  Gets info about the given table.
+  Gets info about the given table, returned as either a `%Pockets.EtsInfo{}`
+  or a `%Pockets.DetsInfo{}` struct.
   An `:error` tuple is returned if the table does not exist.
   """
   @spec info(table_alias :: alias) :: EtsInfo.t() | DetsInfo.t() | {:error, String.t()}
@@ -367,7 +368,7 @@ defmodule Pockets do
   end
 
   @doc """
-  Gets a list of keys in the given table. For larger tables, consider `keys_stream/1`
+  Gets a list of keys in the given table. For larger tables, consider using `keys_stream/1`.
   An error tuple is returned if the table does not exist.
   """
   @spec keys(table_alias :: alias) :: list | {:error, String.t()}
@@ -392,14 +393,14 @@ defmodule Pockets do
 
   @doc """
   This is a powerful function that lets you merge `input` into an open table.
-  All data in the input will be added to the table: the keys in the `input` "have precedence"
+  All data in the input will be added to the table: the keys in the `input` have precedence
   over pre-existing keys in the table.
 
   When the `input` to be merged is...
 
     - an alias for another table, the contents from that table are added to the given `table_alias`
     - a map, the contents from the map are added into the given `table_alias`
-    - a list, the contents from the list are added into the given `table_alias`
+    - a keyword list, the contents from the list are added into the given `table_alias`
 
   ## Examples
 
@@ -410,6 +411,15 @@ defmodule Pockets do
       :my_cache
       iex> Pockets.to_map(:my_cache)
       %{a: "apple", b: "boy", c: "cat"}
+
+      # Merging a list into a table
+      iex> Pockets.new(:my_cache)
+      {:ok, :my_cache}
+      iex> Pockets.merge(:my_cache, [a: "apple", b: "boy", c: "cat"])
+      :my_cache
+      iex> Pockets.to_map(:my_cache)
+      %{a: "apple", b: "boy", c: "cat"}
+
 
       # Merging two tables:
       iex> Pockets.new(:my_first)
@@ -445,7 +455,7 @@ defmodule Pockets do
   The second argument specifies the storage mechanism for the table, either a path to a file (as a string)
   for disk-backed tables (`:dets`), or in `:memory` for memory-backed tables (`:ets`).
 
-  The available `opts` are specific to the storage engine being used.
+  The available `opts` are specific to the storage engine being used (i.e. to [`ets`](https://www.erlang.org/doc/apps/stdlib/ets.html) or [`dets`](https://www.erlang.org/doc/apps/stdlib/dets.html)).
 
   ## In Memory
 
@@ -485,7 +495,7 @@ defmodule Pockets do
   - `:min_no_slots` Application performance can be enhanced with this flag by specifying the estimated number of
       different keys to be stored in the table. Default: `256` (minimum)
   - `:ram_file` boolean. Whether the table is to be kept in RAM.
-      Keeping the table in RAM can sound like an anomaly, but can enhance the performance of applications that open
+      Keeping the table in RAM can sound like an anomaly, but it can enhance the performance of applications that open
       a table, insert a set of objects, and then close the table. When the table is closed, its contents are written
       to the disk file. Default: `false`
   - `:repair` boolean or `:force`. The flag specifies if the `:dets` server invokes the automatic file reparation
